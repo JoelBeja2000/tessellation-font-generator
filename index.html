@@ -327,11 +327,11 @@
             <label style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
                 Rotar Fondo: 
                 <span style="display: flex; align-items: center;">
-                    <input type="number" id="rot-input" value="0" style="width: 50px; text-align: right; background: transparent; color: orange; font-weight: bold; border: 1px solid #555; border-radius: 3px; padding: 2px; -moz-appearance: textfield;">°
+                    <input type="number" id="rot-input" value="0" step="any" style="width: 50px; text-align: right; background: transparent; color: orange; font-weight: bold; border: 1px solid #555; border-radius: 3px; padding: 2px; -moz-appearance: textfield;">°
                 </span>
             </label>
             <div style="display: flex; width: 100%; align-items: center; margin-top: 5px;">
-                <input type="range" id="rot-slider" min="-180" max="180" value="0" style="flex-grow: 1; cursor: pointer;">
+                <input type="range" id="rot-slider" min="-180" max="180" value="0" step="any" style="flex-grow: 1; cursor: pointer;">
                 <button id="btn-reset-rot" style="padding: 5px; margin-left: 5px; font-size: 12px; width: 40px;" title="Resetear Rotación">0°</button>
             </div>
         </div>
