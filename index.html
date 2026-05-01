@@ -327,12 +327,13 @@
             <label style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
                 Rotar Fondo: 
                 <span style="display: flex; align-items: center;">
-                    <input type="number" id="rot-input" value="0" step="any" style="width: 50px; text-align: right; background: transparent; color: orange; font-weight: bold; border: 1px solid #555; border-radius: 3px; padding: 2px; -moz-appearance: textfield;">°
+                    <input type="number" id="rot-input" value="-66.3" step="any" style="width: 50px; text-align: right; background: transparent; color: orange; font-weight: bold; border: 1px solid #555; border-radius: 3px; padding: 2px; -moz-appearance: textfield;">°
                 </span>
             </label>
             <div style="display: flex; width: 100%; align-items: center; margin-top: 5px;">
-                <input type="range" id="rot-slider" min="-180" max="180" value="0" step="any" style="flex-grow: 1; cursor: pointer;">
-                <button id="btn-reset-rot" style="padding: 5px; margin-left: 5px; font-size: 12px; width: 40px;" title="Resetear Rotación">0°</button>
+                <input type="range" id="rot-slider" min="-180" max="180" value="-66.3" step="any" style="flex-grow: 1; cursor: pointer;">
+                <button id="btn-rot-0" style="padding: 5px; margin-left: 5px; font-size: 12px; width: 30px;" title="Rotación Diagonal"> / </button>
+                <button id="btn-reset-rot" style="padding: 5px; margin-left: 5px; font-size: 12px; width: 50px;" title="Rotación Vertical (Por Defecto)">-66.3°</button>
             </div>
         </div>
 
@@ -432,7 +433,7 @@
         }
 
         let scale = 1;
-        let rotation = 0;
+        let rotation = -66.3;
         let panX = window.innerWidth / 2;
         let panY = window.innerHeight / 2 - 100;
         let isDragging = false;
@@ -620,6 +621,13 @@
         });
 
         document.getElementById('btn-reset-rot').addEventListener('click', () => {
+            rotation = -66.3;
+            document.getElementById('rot-slider').value = rotation;
+            document.getElementById('rot-input').value = rotation;
+            updateTransform();
+        });
+
+        document.getElementById('btn-rot-0').addEventListener('click', () => {
             rotation = 0;
             document.getElementById('rot-slider').value = 0;
             document.getElementById('rot-input').value = 0;
@@ -650,10 +658,10 @@
             
             if (fontData[currentLetter]) {
                 currentLetterData = new Set(fontData[currentLetter].tiles);
-                rotation = fontData[currentLetter].rotation || 0;
+                rotation = fontData[currentLetter].rotation !== undefined ? fontData[currentLetter].rotation : -66.3;
             } else {
                 currentLetterData = new Set();
-                rotation = 0;
+                rotation = -66.3;
             }
             document.getElementById('rot-slider').value = rotation;
             document.getElementById('rot-input').value = rotation;
@@ -813,7 +821,7 @@
             if (!letterObj || !letterObj.tiles || letterObj.tiles.size === 0) return null;
             
             const pieceSet = letterObj.tiles;
-            const rotAngle = letterObj.rotation || 0;
+            const rotAngle = letterObj.rotation !== undefined ? letterObj.rotation : -66.3;
             const rad = rotAngle * Math.PI / 180;
             const cosA = Math.cos(rad);
             const sinA = Math.sin(rad);
