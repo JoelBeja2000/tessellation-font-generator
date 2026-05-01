@@ -14,6 +14,7 @@
             height: 100%;
             background-color: #1a1a1a;
             overflow: hidden;
+            overscroll-behavior: none; /* Evita el rebote y pull-to-refresh en móvil */
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             -webkit-tap-highlight-color: transparent; /* Evita el cuadrado azul en móviles al tocar */
         }
@@ -22,6 +23,7 @@
             height: 100%;
             position: absolute;
             top: 0; left: 0;
+            touch-action: none; /* Impide gestos del navegador (como deslizar para ir atrás) */
         }
         
         .normal-piece, .inv-piece {
