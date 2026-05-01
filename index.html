@@ -323,6 +323,12 @@
             <input type="text" id="ghost-input" class="char-select" maxlength="1" placeholder="Ej: A" style="text-align: center;">
         </div>
 
+        <div class="char-group" style="margin-top: 5px;">
+            <label>Rotar Fondo:</label>
+            <input type="range" id="rot-slider" min="-180" max="180" value="0" style="flex-grow: 1; cursor: pointer;">
+            <button id="btn-reset-rot" style="padding: 5px; margin-left: 5px; font-size: 12px; width: 40px;" title="Resetear Rotación">0°</button>
+        </div>
+
         <div id="current-char-display">Editando:<br><span id="char-display-value">Ninguno</span></div>
 
         <button id="btn-save">Guardar Letra</button>
@@ -391,9 +397,9 @@
 
         document.getElementById('ghost-input').addEventListener('input', (e) => {
             const val = e.target.value;
-            if (val && fontData[val] && fontData[val].size > 0) {
+            if (val && fontData[val] && fontData[val].tiles.size > 0) {
                 // El usuario ya dibujó esta letra, usamos sus teselas como fantasma
-                currentGhostData = fontData[val];
+                currentGhostData = fontData[val].tiles;
                 ghostText.textContent = ''; // Ocultar texto nativo
             } else {
                 // No la ha dibujado, usamos texto nativo de referencia
@@ -419,6 +425,7 @@
         }
 
         let scale = 1;
+        let rotation = 0;
         let panX = window.innerWidth / 2;
         let panY = window.innerHeight / 2 - 100;
         let isDragging = false;
@@ -497,10 +504,32 @@
             const width = rect.width || window.innerWidth;
             const height = rect.height || window.innerHeight;
 
-            const minX = (-panX) / scale - 400;
-            const maxX = (width - panX) / scale + 400;
-            const minY = (-panY) / scale - 400;
-            const maxY = (height - panY) / scale + 400;
+            // Esquinas de la pantalla
+            const corners = [
+                {x: 0, y: 0},
+                {x: width, y: 0},
+                {x: width, y: height},
+                {x: 0, y: height}
+            ];
+
+            // Invertir rotación y escala para encontrar las coordenadas locales
+            const rad = -rotation * Math.PI / 180;
+            const cosA = Math.cos(rad);
+            const sinA = Math.sin(rad);
+
+            const localCorners = corners.map(pt => {
+                const dx = (pt.x - panX) / scale;
+                const dy = (pt.y - panY) / scale;
+                return {
+                    x: dx * cosA - dy * sinA,
+                    y: dx * sinA + dy * cosA
+                };
+            });
+
+            const minX = Math.min(...localCorners.map(p => p.x)) - 400;
+            const maxX = Math.max(...localCorners.map(p => p.x)) + 400;
+            const minY = Math.min(...localCorners.map(p => p.y)) - 400;
+            const maxY = Math.max(...localCorners.map(p => p.y)) + 400;
 
             const p1 = getRC(minX, minY);
             const p2 = getRC(maxX, minY);
@@ -554,8 +583,11 @@
 
         document.getElementById('btn-save').addEventListener('click', () => {
             if (!currentLetter) return;
-            // Clonamos el Set para guardarlo
-            fontData[currentLetter] = new Set(currentLetterData);
+            // Clonamos el Set para guardarlo y la rotación
+            fontData[currentLetter] = {
+                tiles: new Set(currentLetterData),
+                rotation: rotation
+            };
             updateTestFont(); // Actualizamos la fuente en vivo
             showStatus(`¡'${currentLetter}' guardada!`);
         });
@@ -564,6 +596,17 @@
             currentLetterData.clear();
             refreshCanvasVisuals();
             showStatus('Lienzo limpio');
+        });
+
+        document.getElementById('rot-slider').addEventListener('input', (e) => {
+            rotation = parseFloat(e.target.value);
+            updateTransform();
+        });
+
+        document.getElementById('btn-reset-rot').addEventListener('click', () => {
+            rotation = 0;
+            document.getElementById('rot-slider').value = 0;
+            updateTransform();
         });
 
         function handleCharChange(e) {
@@ -577,7 +620,10 @@
 
             // Autoguardar la letra anterior
             if (currentLetter) {
-                fontData[currentLetter] = new Set(currentLetterData);
+                fontData[currentLetter] = {
+                    tiles: new Set(currentLetterData),
+                    rotation: rotation
+                };
                 updateTestFont(); 
             }
             
@@ -585,7 +631,15 @@
             currentLetter = newVal;
             document.getElementById('char-display-value').textContent = currentLetter;
             
-            currentLetterData = fontData[currentLetter] ? new Set(fontData[currentLetter]) : new Set();
+            if (fontData[currentLetter]) {
+                currentLetterData = new Set(fontData[currentLetter].tiles);
+                rotation = fontData[currentLetter].rotation || 0;
+            } else {
+                currentLetterData = new Set();
+                rotation = 0;
+            }
+            document.getElementById('rot-slider').value = rotation;
+            updateTransform();
             refreshCanvasVisuals();
         }
 
@@ -711,7 +765,7 @@
         });
 
         function updateTransform() {
-            container.setAttribute('transform', `translate(${panX}, ${panY}) scale(${scale})`);
+            container.setAttribute('transform', `translate(${panX}, ${panY}) scale(${scale}) rotate(${rotation})`);
             renderVisiblePieces();
         }
 
@@ -737,8 +791,14 @@
         const parsedCommands = parseSVGPath(rawPiecePath);
 
         // 2. Generador de Glyph (Letra) para OpenType
-        function generateGlyphForLetter(char, pieceSet) {
-            if (pieceSet.size === 0) return null;
+        function generateGlyphForLetter(char, letterObj) {
+            if (!letterObj || !letterObj.tiles || letterObj.tiles.size === 0) return null;
+            
+            const pieceSet = letterObj.tiles;
+            const rotAngle = letterObj.rotation || 0;
+            const rad = rotAngle * Math.PI / 180;
+            const cosA = Math.cos(rad);
+            const sinA = Math.sin(rad);
 
             const path = new opentype.Path();
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -753,19 +813,28 @@
                 let tx = c * w + r * skewX;
                 let ty = r * dy + c * skewY;
 
-                let transformFn;
+                let baseTransformFn;
                 if (type === 'inv') {
                     tx += invX;
                     ty += invY;
                     // Rotación de 180 grados desde el centro de la pieza original (157x153 / 2)
-                    transformFn = (px, py) => {
+                    baseTransformFn = (px, py) => {
                         const rx = 157 - px;
                         const ry = 153 - py;
                         return [rx + tx, ry + ty];
                     };
                 } else {
-                    transformFn = (px, py) => [px + tx, py + ty];
+                    baseTransformFn = (px, py) => [px + tx, py + ty];
                 }
+
+                // Envolver la transformación base con la rotación global de la letra
+                const transformFn = (px, py) => {
+                    const [bx, by] = baseTransformFn(px, py);
+                    return [
+                        bx * cosA - by * sinA,
+                        bx * sinA + by * cosA
+                    ];
+                };
 
                 // Aplicar la transformación a cada comando de la pieza
                 parsedCommands.forEach(cmd => {
@@ -839,9 +908,9 @@
             glyphs.push(notdefGlyph);
 
             let letrasCount = 0;
-            for (const [char, pieceSet] of Object.entries(fontData)) {
-                if (pieceSet.size > 0) {
-                    const g = generateGlyphForLetter(char, pieceSet);
+            for (const [char, letterObj] of Object.entries(fontData)) {
+                if (letterObj && letterObj.tiles && letterObj.tiles.size > 0) {
+                    const g = generateGlyphForLetter(char, letterObj);
                     if (g) {
                         glyphs.push(g);
                         letrasCount++;
