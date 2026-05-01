@@ -324,9 +324,13 @@
         </div>
 
         <div class="char-group" style="margin-top: 5px;">
-            <label>Rotar Fondo:</label>
-            <input type="range" id="rot-slider" min="-180" max="180" value="0" style="flex-grow: 1; cursor: pointer;">
-            <button id="btn-reset-rot" style="padding: 5px; margin-left: 5px; font-size: 12px; width: 40px;" title="Resetear Rotación">0°</button>
+            <label style="width: 100%; display: flex; justify-content: space-between;">
+                Rotar Fondo: <span id="rot-value" style="font-weight: bold; color: orange;">0°</span>
+            </label>
+            <div style="display: flex; width: 100%; align-items: center;">
+                <input type="range" id="rot-slider" min="-180" max="180" value="0" style="flex-grow: 1; cursor: pointer;">
+                <button id="btn-reset-rot" style="padding: 5px; margin-left: 5px; font-size: 12px; width: 40px;" title="Resetear Rotación">0°</button>
+            </div>
         </div>
 
         <div id="current-char-display">Editando:<br><span id="char-display-value">Ninguno</span></div>
@@ -600,12 +604,14 @@
 
         document.getElementById('rot-slider').addEventListener('input', (e) => {
             rotation = parseFloat(e.target.value);
+            document.getElementById('rot-value').textContent = rotation + '°';
             updateTransform();
         });
 
         document.getElementById('btn-reset-rot').addEventListener('click', () => {
             rotation = 0;
             document.getElementById('rot-slider').value = 0;
+            document.getElementById('rot-value').textContent = '0°';
             updateTransform();
         });
 
@@ -639,6 +645,7 @@
                 rotation = 0;
             }
             document.getElementById('rot-slider').value = rotation;
+            document.getElementById('rot-value').textContent = rotation + '°';
             updateTransform();
             refreshCanvasVisuals();
         }
