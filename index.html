@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gray Tessellation - Font Generator</title>
+    <!-- Incluimos opentype.js para generar la fuente final -->
+    <script src="https://cdn.jsdelivr.net/npm/opentype.js@latest/dist/opentype.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #1a1a1a;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        svg {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+        }
+        
+        .normal-piece, .inv-piece {
+            pointer-events: all;
+            cursor: pointer;
+            transition: fill 0.2s ease;
+        }
+
+        .normal-piece {
+            fill: transparent;
+            stroke: #888888;
+            stroke-width: 1.5;
+        }
+
+        .inv-piece {
+            fill: transparent;
+            stroke: none;
+        }
+
+        .ghost {
+            fill: rgba(255, 255, 255, 0.12) !important;
+            stroke: rgba(255, 255, 255, 0.3) !important;
+        }
+
+        .active {
+            fill: orange !important;
+        }
+
+        /* Interfaz de Generador de Fuentes */
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(30, 30, 30, 0.95);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            color: #eee;
+            z-index: 10;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 280px;
+            backdrop-filter: blur(10px);
+        }
+        #ui-panel h3 {
+            margin: 0;
+            font-size: 18px;
+            text-align: center;
+            border-bottom: 1px solid #555;
+            padding-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #e67e22;
+        }
+        .char-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .char-group label {
+            font-size: 13px;
+            color: #aaa;
+            margin: 0;
+            width: 100px;
+        }
+        .char-select {
+            flex-grow: 1;
+            padding: 8px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            outline: none;
+        }
+        .char-select:hover {
+            background: #444;
+        }
+        #ui-panel button {
+            padding: 10px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            outline: none;
+        }
+        #ui-panel button:hover {
+            background: #444;
+        }
+        #current-char-display {
+            text-align: center;
+            font-size: 16px;
+            color: #fff;
+            margin: 5px 0;
+            padding: 12px;
+            background: #111;
+            border-radius: 4px;
+            border: 1px solid #444;
+        }
+        #char-display-value {
+            font-size: 24px;
+            color: #e67e22;
+            font-weight: bold;
+            display: block;
+            margin-top: 5px;
+        }
+        #btn-export {
+            background: #e67e22 !important;
+            border-color: #d35400 !important;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        #btn-export:hover {
+            background: #d35400 !important;
+        }
+
+        /* Botón de Menú Móvil */
+        #mobile-menu-btn {
+            display: none;
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 20;
+            background: #e67e22;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+
+        /* Panel inferior Desplegable para el probador de fuente */
+        #tester-panel {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(20, 20, 20, 0.98);
+            border-top: 2px solid #e67e22;
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 40vh;
+            transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #tester-panel.collapsed {
+            height: 45px;
+            border-top: 1px solid #444;
+        }
+
+        #tester-header {
+            height: 45px;
+            min-height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #e67e22;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            user-select: none;
+            background: rgba(30, 30, 30, 0.8);
+            transition: background 0.2s;
+        }
+        
+        #tester-header:hover {
+            background: rgba(50, 50, 50, 0.8);
+        }
+
+        #tester-content {
+            padding: 20px;
+            flex-grow: 1;
+            display: flex;
+            opacity: 1;
+            transition: opacity 0.3s;
+        }
+
+        #tester-panel.collapsed #tester-content {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #font-tester {
+            width: 100%;
+            height: 100%;
+            background: #111;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 8px;
+            font-size: 120px; /* Tamaño GIGANTE */
+            outline: none;
+            box-sizing: border-box;
+            text-align: center;
+            resize: none;
+        }
+        #font-tester:focus {
+            border-color: #e67e22;
+        }
+
+        /* Adaptación a Móviles */
+        @media (max-width: 768px) {
+            #mobile-menu-btn {
+                display: block;
+            }
+            #ui-panel {
+                top: 60px;
+                right: 15px;
+                width: calc(100vw - 70px);
+                max-width: 300px;
+                max-height: 70vh;
+                overflow-y: auto;
+                transform: translateX(150%);
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            #ui-panel.open {
+                transform: translateX(0);
+            }
+            #font-tester {
+                font-size: 60px; /* Letra un poco más ajustada para móvil */
+            }
+            #tester-panel.collapsed {
+                height: 50px;
+            }
+            #tester-header {
+                height: 50px;
+                min-height: 50px;
+            }
+        }
+
+        #status-msg {
+            font-size: 12px;
+            color: #2ecc71;
+            text-align: center;
+            height: 15px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <svg id="tessellation">
+        <defs>
+            <path id="piece" d="M63.0405 152.772C62.2904 152.252 60.3256 150.89 59.5754 150.37C59.4866 150.228 59.4305 150.038 59.3048 149.943C57.6503 148.712 56.1456 147.313 54.6179 145.93C51.3729 142.993 48.4331 139.775 45.7625 136.317C42.1342 131.626 39.0146 126.624 36.5012 121.242C33.8426 115.549 31.8713 109.634 30.5595 103.499C29.989 100.831 29.6397 98.1256 29.3493 95.4091C28.8733 90.9495 28.7377 86.487 29.1109 82.0277C29.6288 75.8265 29.998 69.6435 29.1823 63.4298C28.5427 58.559 27.5502 53.7783 26.0273 49.1154C24.3513 43.9786 22.0515 39.1156 19.2891 34.4797C17.3908 31.2923 15.278 28.2393 12.8684 25.4182C9.66647 21.6765 6.22812 18.1645 2.2772 15.1797C1.1499 14.3285 0.333547 13.2037 0.0541208 11.734C-0.130385 10.764 0.213587 9.86985 0.244673 8.93898L1.80277 6.69099C2.36031 6.41184 2.90161 6.10304 3.47365 5.85601C8.10411 3.85472 12.9504 2.52887 17.864 1.46665C21.5235 0.675182 25.2532 0.270629 28.9854 0.095835C36.9517 -0.277375 44.8204 0.429153 52.5845 2.3796C61.8649 4.71545 70.4292 8.5885 78.3448 13.9388C80.5106 15.4031 82.4618 17.1454 84.762 18.4638C87.2463 19.8878 89.7228 21.3285 92.3152 22.5223C99.9122 26.019 107.905 28.0692 116.237 28.7807C122.537 29.3155 128.8 28.997 135.027 27.9443C136.959 27.6179 138.844 27.1003 140.742 26.6174C143.824 25.8306 146.818 24.7948 149.758 23.5779C150.619 23.222 151.432 22.701 152.44 22.7855C155.162 23.0175 156.729 25.0336 156.428 27.7596C156.081 30.8913 155.522 33.979 154.798 37.0402C153.114 44.1761 150.5 50.9439 146.914 57.3496C146.328 58.3962 145.452 59.3 145.173 60.519L140.5 67.2605C139.454 67.9475 138.933 69.0975 138.147 70.0089C136.347 72.0966 134.484 74.1152 132.501 76.0168C129.575 78.8169 126.468 81.4108 123.136 83.7239C119.339 86.3582 115.415 88.7939 111.163 90.6201C105.84 92.9057 100.81 95.6786 96.135 99.0976C90.9533 102.886 86.3578 107.309 82.4119 112.345C79.3534 116.248 76.6222 120.412 74.4701 124.906C72.2518 129.539 70.3756 134.31 69.2427 139.335C68.5399 142.455 67.5584 145.548 67.8278 148.82C67.8533 149.128 67.7008 149.353 67.5524 149.589C66.5229 152.369 65.8722 153.392 63.0405 152.772Z" />
+        </defs>
+    </svg>
+
+    <button id="mobile-menu-btn">⚙️ Herramientas</button>
+
+    <div id="ui-panel">
+        <h3>Generador de Fuentes</h3>
+        
+        <div class="char-group">
+            <label>Minúsculas:</label>
+            <select class="char-select" id="sel-lower">
+                <option value="" disabled selected>-- Elige --</option>
+            </select>
+        </div>
+        
+        <div class="char-group">
+            <label>Mayúsculas:</label>
+            <select class="char-select" id="sel-upper">
+                <option value="" disabled selected>-- Elige --</option>
+            </select>
+        </div>
+        
+        <div class="char-group">
+            <label>Números:</label>
+            <select class="char-select" id="sel-numbers">
+                <option value="" disabled selected>-- Elige --</option>
+            </select>
+        </div>
+        
+        <div class="char-group">
+            <label>Símbolos:</label>
+            <select class="char-select" id="sel-symbols">
+                <option value="" disabled selected>-- Elige --</option>
+            </select>
+        </div>
+
+        <hr style="border-color: #555; width: 100%; margin: 5px 0;">
+
+        <div class="char-group">
+            <label>Guía Fantasma:</label>
+            <input type="text" id="ghost-input" class="char-select" maxlength="1" placeholder="Ej: A" style="text-align: center;">
+        </div>
+
+        <div id="current-char-display">Editando:<br><span id="char-display-value">Ninguno</span></div>
+
+        <button id="btn-save">Guardar Letra</button>
+        <button id="btn-clear">Limpiar Lienzo</button>
+        <div id="status-msg"></div>
+        
+        <button id="btn-export">Exportar Fuente (.otf)</button>
+    </div>
+
+    <!-- Panel Inferior Desplegable -->
+    <div id="tester-panel" class="collapsed">
+        <div id="tester-header">
+            <span id="tester-icon">&#x25B2;</span> &nbsp; Probador de Fuente en Vivo
+        </div>
+        <div id="tester-content">
+            <textarea id="font-tester" placeholder="Escribe aquí..."></textarea>
+        </div>
+    </div>
+
+    <script>
+        // Inicializar selectores de letras
+        const lowerChars = "abcdefghijklmnopqrstuvwxyz".split('');
+        const upperChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
+        const numChars = "0123456789".split('');
+        const symChars = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~".split('');
+
+        function populateSelect(id, chars) {
+            const sel = document.getElementById(id);
+            chars.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                sel.appendChild(opt);
+            });
+            sel.addEventListener('change', handleCharChange);
+        }
+
+        populateSelect('sel-lower', lowerChars);
+        populateSelect('sel-upper', upperChars);
+        populateSelect('sel-numbers', numChars);
+        populateSelect('sel-symbols', symChars);
+
+        // ESTADO DE LA FUENTE
+        const fontData = {}; // Guarda Sets con las coordenadas para cada letra
+        let currentLetter = ''; // Comienza vacío
+        let currentLetterData = new Set(); // Guarda strings "r,c,type"
+
+        const svg = document.getElementById('tessellation');
+        const container = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        svg.appendChild(container);
+
+        // Capa de Letra Fantasma (Texto nativo como fallback)
+        const ghostText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        ghostText.setAttribute('font-family', 'sans-serif');
+        ghostText.setAttribute('font-size', '1200');
+        ghostText.setAttribute('font-weight', 'bold');
+        ghostText.setAttribute('fill', 'rgba(255, 255, 255, 0.06)');
+        ghostText.setAttribute('text-anchor', 'middle');
+        ghostText.setAttribute('dominant-baseline', 'central');
+        ghostText.setAttribute('pointer-events', 'none');
+        ghostText.setAttribute('x', '0');
+        ghostText.setAttribute('y', '0');
+        container.appendChild(ghostText);
+
+        let currentGhostData = new Set(); // Guarda las teselas de la letra fantasma si existe
+
+        document.getElementById('ghost-input').addEventListener('input', (e) => {
+            const val = e.target.value;
+            if (val && fontData[val] && fontData[val].size > 0) {
+                // El usuario ya dibujó esta letra, usamos sus teselas como fantasma
+                currentGhostData = fontData[val];
+                ghostText.textContent = ''; // Ocultar texto nativo
+            } else {
+                // No la ha dibujado, usamos texto nativo de referencia
+                currentGhostData = new Set();
+                ghostText.textContent = val;
+            }
+            refreshCanvasVisuals();
+        });
+
+        const w = 162.42;
+        const dy = 152.12;
+        const skewX = 66.64;
+        const skewY = 18.07;
+        const invX = 64.85;
+        const invY = 27.97;
+        
+        const det = (skewX * skewY) - (w * dy);
+        
+        function getRC(x, y) {
+            const r = (skewY * x - w * y) / det;
+            const c = (-dy * x + skewX * y) / det;
+            return {r, c};
+        }
+
+        let scale = 1;
+        let panX = window.innerWidth / 2;
+        let panY = window.innerHeight / 2 - 100;
+        let isDragging = false;
+        let startDragX, startDragY;
+        let startClientX, startClientY;
+        let isMoved = false;
+
+        const renderedPieces = new Set();
+
+        function togglePiece(e) {
+            if (!currentLetter) {
+                alert("Por favor, selecciona un carácter en el menú de la derecha antes de dibujar.");
+                return;
+            }
+            if (!isMoved) {
+                const piece = e.currentTarget;
+                const r = piece.getAttribute('data-r');
+                const c = piece.getAttribute('data-c');
+                const type = piece.getAttribute('data-type');
+                const key = `${r},${c},${type}`;
+
+                const isActive = piece.classList.toggle('active');
+                
+                if (isActive) {
+                    piece.classList.remove('ghost');
+                    currentLetterData.add(key);
+                } else {
+                    if (currentGhostData.has(key)) piece.classList.add('ghost');
+                    currentLetterData.delete(key);
+                }
+            }
+        }
+
+        function createPiece(r, c) {
+            const x = c * w + r * skewX;
+            const y = r * dy + c * skewY;
+            
+            const keyNorm = `${r},${c},normal`;
+            const keyInv = `${r},${c},inv`;
+
+            // Pieza Normal
+            const useNormal = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+            useNormal.setAttribute('href', '#piece');
+            useNormal.setAttribute('class', 'normal-piece');
+            useNormal.setAttribute('data-r', r);
+            useNormal.setAttribute('data-c', c);
+            useNormal.setAttribute('data-type', 'normal');
+            useNormal.setAttribute('transform', `translate(${x}, ${y})`);
+            useNormal.addEventListener('click', togglePiece);
+            if (currentLetterData.has(keyNorm)) {
+                useNormal.classList.add('active');
+            } else if (currentGhostData.has(keyNorm)) {
+                useNormal.classList.add('ghost');
+            }
+            container.appendChild(useNormal);
+
+            // Pieza Invertida
+            const useInv = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+            useInv.setAttribute('href', '#piece');
+            useInv.setAttribute('class', 'inv-piece');
+            useInv.setAttribute('data-r', r);
+            useInv.setAttribute('data-c', c);
+            useInv.setAttribute('data-type', 'inv');
+            useInv.setAttribute('transform', `translate(${x + invX}, ${y + invY}) rotate(180, 78.5, 76.5)`);
+            useInv.addEventListener('click', togglePiece);
+            if (currentLetterData.has(keyInv)) {
+                useInv.classList.add('active');
+            } else if (currentGhostData.has(keyInv)) {
+                useInv.classList.add('ghost');
+            }
+            container.appendChild(useInv);
+        }
+
+        function renderVisiblePieces() {
+            const rect = svg.getBoundingClientRect();
+            const width = rect.width || window.innerWidth;
+            const height = rect.height || window.innerHeight;
+
+            const minX = (-panX) / scale - 400;
+            const maxX = (width - panX) / scale + 400;
+            const minY = (-panY) / scale - 400;
+            const maxY = (height - panY) / scale + 400;
+
+            const p1 = getRC(minX, minY);
+            const p2 = getRC(maxX, minY);
+            const p3 = getRC(minX, maxY);
+            const p4 = getRC(maxX, maxY);
+
+            const minR = Math.floor(Math.min(p1.r, p2.r, p3.r, p4.r)) - 1;
+            const maxR = Math.ceil(Math.max(p1.r, p2.r, p3.r, p4.r)) + 1;
+            const minC = Math.floor(Math.min(p1.c, p2.c, p3.c, p4.c)) - 1;
+            const maxC = Math.ceil(Math.max(p1.c, p2.c, p3.c, p4.c)) + 1;
+
+            for (let r = minR; r <= maxR; r++) {
+                for (let c = minC; c <= maxC; c++) {
+                    const key = `${r},${c}`;
+                    if (!renderedPieces.has(key)) {
+                        renderedPieces.add(key);
+                        createPiece(r, c);
+                    }
+                }
+            }
+        }
+
+        renderVisiblePieces();
+
+        // Controles UI
+        function showStatus(msg) {
+            const el = document.getElementById('status-msg');
+            el.textContent = msg;
+            el.style.opacity = 1;
+            setTimeout(() => el.style.opacity = 0, 2000);
+        }
+
+        function refreshCanvasVisuals() {
+            // Actualizar todas las piezas ya creadas en el DOM
+            const pieces = container.querySelectorAll('use');
+            pieces.forEach(p => {
+                const r = p.getAttribute('data-r');
+                const c = p.getAttribute('data-c');
+                const type = p.getAttribute('data-type');
+                const key = `${r},${c},${type}`;
+                
+                p.classList.remove('active', 'ghost');
+                
+                if (currentLetterData.has(key)) {
+                    p.classList.add('active');
+                } else if (currentGhostData.has(key)) {
+                    p.classList.add('ghost');
+                }
+            });
+        }
+
+        document.getElementById('btn-save').addEventListener('click', () => {
+            if (!currentLetter) return;
+            // Clonamos el Set para guardarlo
+            fontData[currentLetter] = new Set(currentLetterData);
+            updateTestFont(); // Actualizamos la fuente en vivo
+            showStatus(`¡'${currentLetter}' guardada!`);
+        });
+
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            currentLetterData.clear();
+            refreshCanvasVisuals();
+            showStatus('Lienzo limpio');
+        });
+
+        function handleCharChange(e) {
+            const newVal = e.target.value;
+            if (!newVal) return;
+
+            // Resetear los otros menús desplegables
+            document.querySelectorAll('.char-select').forEach(sel => {
+                if (sel !== e.target) sel.value = "";
+            });
+
+            // Autoguardar la letra anterior
+            if (currentLetter) {
+                fontData[currentLetter] = new Set(currentLetterData);
+                updateTestFont(); 
+            }
+            
+            // Cambiar a la nueva
+            currentLetter = newVal;
+            document.getElementById('char-display-value').textContent = currentLetter;
+            
+            currentLetterData = fontData[currentLetter] ? new Set(fontData[currentLetter]) : new Set();
+            refreshCanvasVisuals();
+        }
+
+        // Lógica del Menú Móvil
+        const uiPanel = document.getElementById('ui-panel');
+        document.getElementById('mobile-menu-btn').addEventListener('click', () => {
+            uiPanel.classList.toggle('open');
+        });
+
+        // Lógica del Cajón Desplegable (Drawer)
+        const testerPanel = document.getElementById('tester-panel');
+        const testerHeader = document.getElementById('tester-header');
+        const testerIcon = document.getElementById('tester-icon');
+        
+        testerHeader.addEventListener('click', () => {
+            testerPanel.classList.toggle('collapsed');
+            if (testerPanel.classList.contains('collapsed')) {
+                testerIcon.innerHTML = '&#x25B2;'; // Flecha Arriba
+            } else {
+                testerIcon.innerHTML = '&#x25BC;'; // Flecha Abajo
+            }
+        });
+
+        // Zoom y Pan
+        svg.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = -e.deltaY * 0.002;
+            let newScale = scale * (1 + delta);
+            newScale = Math.max(0.1, Math.min(newScale, 10)); 
+            const rect = svg.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            panX = mouseX - (mouseX - panX) * (newScale / scale);
+            panY = mouseY - (mouseY - panY) * (newScale / scale);
+            scale = newScale;
+            updateTransform();
+        });
+
+        svg.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            isMoved = false;
+            startClientX = e.clientX;
+            startClientY = e.clientY;
+            startDragX = e.clientX - panX;
+            startDragY = e.clientY - panY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            if (Math.abs(e.clientX - startClientX) > 3 || Math.abs(e.clientY - startClientY) > 3) {
+                isMoved = true;
+            }
+            panX = e.clientX - startDragX;
+            panY = e.clientY - startDragY;
+            updateTransform();
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            setTimeout(() => { isMoved = false; }, 50);
+        });
+
+        // Soporte Táctil (Móviles)
+        let initialPinchDistance = null;
+        let initialScale = 1;
+
+        svg.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                isMoved = false;
+                startClientX = e.touches[0].clientX;
+                startClientY = e.touches[0].clientY;
+                startDragX = e.touches[0].clientX - panX;
+                startDragY = e.touches[0].clientY - panY;
+            } else if (e.touches.length === 2) {
+                initialPinchDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                initialScale = scale;
+            }
+        }, { passive: false });
+
+        svg.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1 && isDragging) {
+                if (Math.abs(e.touches[0].clientX - startClientX) > 5 || Math.abs(e.touches[0].clientY - startClientY) > 5) {
+                    isMoved = true;
+                }
+                panX = e.touches[0].clientX - startDragX;
+                panY = e.touches[0].clientY - startDragY;
+                updateTransform();
+            } else if (e.touches.length === 2 && initialPinchDistance) {
+                e.preventDefault(); // Evitar zoom nativo del navegador
+                const currentDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                const zoomFactor = currentDistance / initialPinchDistance;
+                let newScale = initialScale * zoomFactor;
+                newScale = Math.max(0.1, Math.min(newScale, 10));
+
+                const pinchCenterX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const pinchCenterY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                const rect = svg.getBoundingClientRect();
+                const mouseX = pinchCenterX - rect.left;
+                const mouseY = pinchCenterY - rect.top;
+                
+                panX = mouseX - (mouseX - panX) * (newScale / scale);
+                panY = mouseY - (mouseY - panY) * (newScale / scale);
+                scale = newScale;
+                updateTransform();
+            }
+        }, { passive: false });
+
+        svg.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) {
+                initialPinchDistance = null;
+            }
+            if (e.touches.length === 0) {
+                isDragging = false;
+                setTimeout(() => { isMoved = false; }, 50);
+            }
+        });
+
+        function updateTransform() {
+            container.setAttribute('transform', `translate(${panX}, ${panY}) scale(${scale})`);
+            renderVisiblePieces();
+        }
+
+        // === LOGICA DE EXPORTACION DE FUENTE (OpenType.js) ===
+        
+        // 1. Parser básico para el string de la ruta SVG (M... C... L... Z)
+        function parseSVGPath(dStr) {
+            const commands = [];
+            const regex = /([MCLZ])([^MCLZ]*)/gi;
+            let match;
+            while ((match = regex.exec(dStr)) !== null) {
+                const type = match[1].toUpperCase();
+                const argsStr = match[2].trim();
+                // Separar los números (incluso si no tienen espacios pero tienen signos negativos)
+                const spacedArgs = argsStr.replace(/-/g, ' -').trim();
+                const args = spacedArgs.split(/[\s,]+/).filter(s => s !== '').map(parseFloat);
+                commands.push({ type, args });
+            }
+            return commands;
+        }
+
+        const rawPiecePath = document.getElementById('piece').getAttribute('d');
+        const parsedCommands = parseSVGPath(rawPiecePath);
+
+        // 2. Generador de Glyph (Letra) para OpenType
+        function generateGlyphForLetter(char, pieceSet) {
+            if (pieceSet.size === 0) return null;
+
+            const path = new opentype.Path();
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+            // Recorrer todas las piezas de esta letra
+            pieceSet.forEach(key => {
+                const [rStr, cStr, type] = key.split(',');
+                const r = parseInt(rStr);
+                const c = parseInt(cStr);
+                
+                // Traslación matemática de la cuadrícula
+                let tx = c * w + r * skewX;
+                let ty = r * dy + c * skewY;
+
+                let transformFn;
+                if (type === 'inv') {
+                    tx += invX;
+                    ty += invY;
+                    // Rotación de 180 grados desde el centro de la pieza original (157x153 / 2)
+                    transformFn = (px, py) => {
+                        const rx = 157 - px;
+                        const ry = 153 - py;
+                        return [rx + tx, ry + ty];
+                    };
+                } else {
+                    transformFn = (px, py) => [px + tx, py + ty];
+                }
+
+                // Aplicar la transformación a cada comando de la pieza
+                parsedCommands.forEach(cmd => {
+                    if (cmd.type === 'M') {
+                        const [px, py] = transformFn(cmd.args[0], cmd.args[1]);
+                        path.moveTo(px, py);
+                        minX = Math.min(minX, px); maxX = Math.max(maxX, px);
+                        minY = Math.min(minY, py); maxY = Math.max(maxY, py);
+                    } else if (cmd.type === 'L') {
+                        const [px, py] = transformFn(cmd.args[0], cmd.args[1]);
+                        path.lineTo(px, py);
+                        minX = Math.min(minX, px); maxX = Math.max(maxX, px);
+                        minY = Math.min(minY, py); maxY = Math.max(maxY, py);
+                    } else if (cmd.type === 'C') {
+                        const [cx1, cy1] = transformFn(cmd.args[0], cmd.args[1]);
+                        const [cx2, cy2] = transformFn(cmd.args[2], cmd.args[3]);
+                        const [px, py] = transformFn(cmd.args[4], cmd.args[5]);
+                        path.curveTo(cx1, cy1, cx2, cy2, px, py);
+                        minX = Math.min(minX, px); maxX = Math.max(maxX, px);
+                        minY = Math.min(minY, py); maxY = Math.max(maxY, py);
+                    } else if (cmd.type === 'Z') {
+                        path.close();
+                    }
+                });
+            });
+
+            // 3. Normalizar la ruta a coordenadas de Fuente Tipográfica
+            // En SVG el Y crece hacia abajo. En fuentes (OpenType) el Y crece hacia arriba.
+            const width = maxX - minX;
+            const height = maxY - minY;
+
+            // Escalar la letra para que mida ~800 unidades de alto (estándar tipográfico)
+            const fontScale = 800 / height;
+            
+            const finalPath = new opentype.Path();
+            path.commands.forEach(cmd => {
+                if (cmd.type === 'M') {
+                    finalPath.moveTo((cmd.x - minX) * fontScale, (maxY - cmd.y) * fontScale);
+                } else if (cmd.type === 'L') {
+                    finalPath.lineTo((cmd.x - minX) * fontScale, (maxY - cmd.y) * fontScale);
+                } else if (cmd.type === 'C') {
+                    finalPath.curveTo(
+                        (cmd.x1 - minX) * fontScale, (maxY - cmd.y1) * fontScale,
+                        (cmd.x2 - minX) * fontScale, (maxY - cmd.y2) * fontScale,
+                        (cmd.x - minX) * fontScale, (maxY - cmd.y) * fontScale
+                    );
+                } else if (cmd.type === 'Z') {
+                    finalPath.close();
+                }
+            });
+
+            return new opentype.Glyph({
+                name: char,
+                unicode: char.charCodeAt(0),
+                advanceWidth: (width * fontScale) + 100, // 100 de espacio entre letras
+                path: finalPath
+            });
+        }
+
+        // 4. Lógica unificada para ensamblar la fuente OpenType
+        function createOpenTypeFont() {
+            const glyphs = [];
+            
+            // Glyph requerido por defecto (notDef)
+            const notdefGlyph = new opentype.Glyph({
+                name: '.notdef',
+                unicode: 0,
+                advanceWidth: 500,
+                path: new opentype.Path()
+            });
+            glyphs.push(notdefGlyph);
+
+            let letrasCount = 0;
+            for (const [char, pieceSet] of Object.entries(fontData)) {
+                if (pieceSet.size > 0) {
+                    const g = generateGlyphForLetter(char, pieceSet);
+                    if (g) {
+                        glyphs.push(g);
+                        letrasCount++;
+                    }
+                }
+            }
+
+            if (letrasCount === 0) return null;
+
+            return new opentype.Font({
+                familyName: 'Tessellation Font',
+                styleName: 'Regular',
+                unitsPerEm: 1000,
+                ascender: 800,
+                descender: -200,
+                glyphs: glyphs
+            });
+        }
+
+        // Lógica de Prueba en Vivo (Actualiza la fuente en memoria)
+        let currentFontUrl = null;
+        function updateTestFont() {
+            try {
+                const font = createOpenTypeFont();
+                if (!font) return;
+                
+                const buffer = font.toArrayBuffer();
+                const blob = new Blob([buffer], { type: 'font/opentype' });
+                
+                if (currentFontUrl) URL.revokeObjectURL(currentFontUrl);
+                currentFontUrl = URL.createObjectURL(blob);
+                
+                let style = document.getElementById('dynamic-font-style');
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = 'dynamic-font-style';
+                    document.head.appendChild(style);
+                }
+                
+                style.innerHTML = `
+                    @font-face {
+                        font-family: 'TestTessellationFont';
+                        src: url('${currentFontUrl}') format('opentype');
+                    }
+                    #font-tester {
+                        font-family: 'TestTessellationFont', sans-serif !important;
+                    }
+                `;
+            } catch (e) {
+                console.error("Error al actualizar la fuente de prueba:", e);
+            }
+        }
+
+        document.getElementById('btn-export').addEventListener('click', () => {
+            // Guardar la letra actual antes de exportar
+            fontData[currentLetter] = new Set(currentLetterData);
+            updateTestFont();
+
+            const font = createOpenTypeFont();
+            if (!font) {
+                alert("Dibuja al menos una letra antes de exportar.");
+                return;
+            }
+
+            showStatus('Generando fuente...');
+            try {
+                font.download();
+                showStatus('Fuente descargada OK!');
+            } catch (e) {
+                console.error(e);
+                alert("Error generando fuente: " + e.message);
+            }
+        });
+    </script>
+</body>
+</html>
