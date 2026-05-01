@@ -324,10 +324,13 @@
         </div>
 
         <div class="char-group" style="margin-top: 5px;">
-            <label style="width: 100%; display: flex; justify-content: space-between;">
-                Rotar Fondo: <span id="rot-value" style="font-weight: bold; color: orange;">0°</span>
+            <label style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+                Rotar Fondo: 
+                <span style="display: flex; align-items: center;">
+                    <input type="number" id="rot-input" value="0" style="width: 50px; text-align: right; background: transparent; color: orange; font-weight: bold; border: 1px solid #555; border-radius: 3px; padding: 2px; -moz-appearance: textfield;">°
+                </span>
             </label>
-            <div style="display: flex; width: 100%; align-items: center;">
+            <div style="display: flex; width: 100%; align-items: center; margin-top: 5px;">
                 <input type="range" id="rot-slider" min="-180" max="180" value="0" style="flex-grow: 1; cursor: pointer;">
                 <button id="btn-reset-rot" style="padding: 5px; margin-left: 5px; font-size: 12px; width: 40px;" title="Resetear Rotación">0°</button>
             </div>
@@ -604,14 +607,22 @@
 
         document.getElementById('rot-slider').addEventListener('input', (e) => {
             rotation = parseFloat(e.target.value);
-            document.getElementById('rot-value').textContent = rotation + '°';
+            document.getElementById('rot-input').value = rotation;
+            updateTransform();
+        });
+
+        document.getElementById('rot-input').addEventListener('input', (e) => {
+            let val = parseFloat(e.target.value);
+            if (isNaN(val)) val = 0;
+            rotation = val;
+            document.getElementById('rot-slider').value = rotation;
             updateTransform();
         });
 
         document.getElementById('btn-reset-rot').addEventListener('click', () => {
             rotation = 0;
             document.getElementById('rot-slider').value = 0;
-            document.getElementById('rot-value').textContent = '0°';
+            document.getElementById('rot-input').value = 0;
             updateTransform();
         });
 
@@ -645,7 +656,7 @@
                 rotation = 0;
             }
             document.getElementById('rot-slider').value = rotation;
-            document.getElementById('rot-value').textContent = rotation + '°';
+            document.getElementById('rot-input').value = rotation;
             updateTransform();
             refreshCanvasVisuals();
         }
