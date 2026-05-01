@@ -327,13 +327,13 @@
             <label style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
                 Rotar Fondo: 
                 <span style="display: flex; align-items: center;">
-                    <input type="number" id="rot-input" value="-66.3" step="any" style="width: 50px; text-align: right; background: transparent; color: orange; font-weight: bold; border: 1px solid #555; border-radius: 3px; padding: 2px; -moz-appearance: textfield;">°
+                    <input type="number" id="rot-input" value="0" step="any" style="width: 50px; text-align: right; background: transparent; color: orange; font-weight: bold; border: 1px solid #555; border-radius: 3px; padding: 2px; -moz-appearance: textfield;">°
                 </span>
             </label>
             <div style="display: flex; width: 100%; align-items: center; margin-top: 5px;">
-                <input type="range" id="rot-slider" min="-180" max="180" value="-66.3" step="any" style="flex-grow: 1; cursor: pointer;">
+                <input type="range" id="rot-slider" min="-180" max="180" value="0" step="any" style="flex-grow: 1; cursor: pointer;">
                 <button id="btn-rot-0" style="padding: 5px; margin-left: 5px; font-size: 12px; width: 30px;" title="Rotación Diagonal"> / </button>
-                <button id="btn-reset-rot" style="padding: 5px; margin-left: 5px; font-size: 12px; width: 50px;" title="Rotación Vertical (Por Defecto)">-66.3°</button>
+                <button id="btn-reset-rot" style="padding: 5px; margin-left: 5px; font-size: 12px; width: 50px;" title="Rotación Vertical (Por Defecto)">0°</button>
             </div>
         </div>
 
@@ -344,6 +344,7 @@
         <div id="status-msg"></div>
         
         <button id="btn-export">Exportar Fuente (.otf)</button>
+        <button id="btn-export-svg" style="margin-top: 5px; background: #e67e22;">Exportar Dibujo (.svg)</button>
     </div>
 
     <!-- Panel Inferior Desplegable -->
@@ -433,7 +434,7 @@
         }
 
         let scale = 1;
-        let rotation = -66.3;
+        let rotation = 0; // UI Rotation. Math rotation is rotation - 66.3
         let panX = window.innerWidth / 2;
         let panY = window.innerHeight / 2 - 100;
         let isDragging = false;
@@ -521,7 +522,8 @@
             ];
 
             // Invertir rotación y escala para encontrar las coordenadas locales
-            const rad = -rotation * Math.PI / 180;
+            const mathRot = rotation - 66.3;
+            const rad = -mathRot * Math.PI / 180;
             const cosA = Math.cos(rad);
             const sinA = Math.sin(rad);
 
@@ -621,16 +623,16 @@
         });
 
         document.getElementById('btn-reset-rot').addEventListener('click', () => {
-            rotation = -66.3;
-            document.getElementById('rot-slider').value = rotation;
-            document.getElementById('rot-input').value = rotation;
+            rotation = 0;
+            document.getElementById('rot-slider').value = 0;
+            document.getElementById('rot-input').value = 0;
             updateTransform();
         });
 
         document.getElementById('btn-rot-0').addEventListener('click', () => {
-            rotation = 0;
-            document.getElementById('rot-slider').value = 0;
-            document.getElementById('rot-input').value = 0;
+            rotation = 66.3;
+            document.getElementById('rot-slider').value = 66.3;
+            document.getElementById('rot-input').value = 66.3;
             updateTransform();
         });
 
@@ -658,10 +660,10 @@
             
             if (fontData[currentLetter]) {
                 currentLetterData = new Set(fontData[currentLetter].tiles);
-                rotation = fontData[currentLetter].rotation !== undefined ? fontData[currentLetter].rotation : -66.3;
+                rotation = fontData[currentLetter].rotation !== undefined ? fontData[currentLetter].rotation : 0;
             } else {
                 currentLetterData = new Set();
-                rotation = -66.3;
+                rotation = 0;
             }
             document.getElementById('rot-slider').value = rotation;
             document.getElementById('rot-input').value = rotation;
@@ -791,7 +793,8 @@
         });
 
         function updateTransform() {
-            container.setAttribute('transform', `translate(${panX}, ${panY}) scale(${scale}) rotate(${rotation})`);
+            const mathRot = rotation - 66.3;
+            container.setAttribute('transform', `translate(${panX}, ${panY}) scale(${scale}) rotate(${mathRot})`);
             renderVisiblePieces();
         }
 
@@ -816,26 +819,25 @@
         const rawPiecePath = document.getElementById('piece').getAttribute('d');
         const parsedCommands = parseSVGPath(rawPiecePath);
 
-        // 2. Generador de Glyph (Letra) para OpenType
-        function generateGlyphForLetter(char, letterObj) {
+        // 2. Extractor de ruta SVG pura en coordenadas matemáticas
+        function getRawPathForLetter(letterObj) {
             if (!letterObj || !letterObj.tiles || letterObj.tiles.size === 0) return null;
             
             const pieceSet = letterObj.tiles;
-            const rotAngle = letterObj.rotation !== undefined ? letterObj.rotation : -66.3;
-            const rad = rotAngle * Math.PI / 180;
+            const rotAngle = letterObj.rotation !== undefined ? letterObj.rotation : 0;
+            const mathRot = rotAngle - 66.3;
+            const rad = mathRot * Math.PI / 180;
             const cosA = Math.cos(rad);
             const sinA = Math.sin(rad);
 
             const path = new opentype.Path();
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
-            // Recorrer todas las piezas de esta letra
             pieceSet.forEach(key => {
                 const [rStr, cStr, type] = key.split(',');
                 const r = parseInt(rStr);
                 const c = parseInt(cStr);
                 
-                // Traslación matemática de la cuadrícula
                 let tx = c * w + r * skewX;
                 let ty = r * dy + c * skewY;
 
@@ -843,7 +845,6 @@
                 if (type === 'inv') {
                     tx += invX;
                     ty += invY;
-                    // Rotación de 180 grados desde el centro de la pieza original (157x153 / 2)
                     baseTransformFn = (px, py) => {
                         const rx = 157 - px;
                         const ry = 153 - py;
@@ -853,16 +854,11 @@
                     baseTransformFn = (px, py) => [px + tx, py + ty];
                 }
 
-                // Envolver la transformación base con la rotación global de la letra
                 const transformFn = (px, py) => {
                     const [bx, by] = baseTransformFn(px, py);
-                    return [
-                        bx * cosA - by * sinA,
-                        bx * sinA + by * cosA
-                    ];
+                    return [bx * cosA - by * sinA, bx * sinA + by * cosA];
                 };
 
-                // Aplicar la transformación a cada comando de la pieza
                 parsedCommands.forEach(cmd => {
                     if (cmd.type === 'M') {
                         const [px, py] = transformFn(cmd.args[0], cmd.args[1]);
@@ -887,12 +883,17 @@
                 });
             });
 
-            // 3. Normalizar la ruta a coordenadas de Fuente Tipográfica
-            // En SVG el Y crece hacia abajo. En fuentes (OpenType) el Y crece hacia arriba.
+            return { path, minX, maxX, minY, maxY };
+        }
+
+        // 3. Generador de Glyph (Letra) para OpenType
+        function generateGlyphForLetter(char, letterObj) {
+            const rawData = getRawPathForLetter(letterObj);
+            if (!rawData) return null;
+            
+            const { path, minX, maxX, minY, maxY } = rawData;
             const width = maxX - minX;
             const height = maxY - minY;
-
-            // Escalar la letra para que mida ~800 unidades de alto (estándar tipográfico)
             const fontScale = 800 / height;
             
             const finalPath = new opentype.Path();
@@ -992,7 +993,7 @@
 
         document.getElementById('btn-export').addEventListener('click', () => {
             // Guardar la letra actual antes de exportar
-            fontData[currentLetter] = new Set(currentLetterData);
+            fontData[currentLetter] = { tiles: new Set(currentLetterData), rotation: rotation };
             updateTestFont();
 
             const font = createOpenTypeFont();
@@ -1009,6 +1010,46 @@
                 console.error(e);
                 alert("Error generando fuente: " + e.message);
             }
+        });
+
+        // Función de Descarga de SVG Individual
+        document.getElementById('btn-export-svg').addEventListener('click', () => {
+            if (!currentLetter || !fontData[currentLetter] || fontData[currentLetter].tiles.size === 0) {
+                alert("Guarda tu dibujo primero antes de exportarlo.");
+                return;
+            }
+
+            const rawData = getRawPathForLetter(fontData[currentLetter]);
+            if (!rawData) return;
+            
+            const { path, minX, maxX, minY, maxY } = rawData;
+            const width = maxX - minX;
+            const height = maxY - minY;
+            const margin = 20;
+
+            const offsetPath = new opentype.Path();
+            path.commands.forEach(cmd => {
+                if (cmd.type === 'M') offsetPath.moveTo(cmd.x - minX + margin, cmd.y - minY + margin);
+                else if (cmd.type === 'L') offsetPath.lineTo(cmd.x - minX + margin, cmd.y - minY + margin);
+                else if (cmd.type === 'C') offsetPath.curveTo(
+                    cmd.x1 - minX + margin, cmd.y1 - minY + margin,
+                    cmd.x2 - minX + margin, cmd.y2 - minY + margin,
+                    cmd.x - minX + margin, cmd.y - minY + margin
+                );
+                else if (cmd.type === 'Z') offsetPath.close();
+            });
+
+            const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width + margin*2} ${height + margin*2}">
+  <path d="${offsetPath.toPathData(2)}" fill="orange"/>
+</svg>`;
+            
+            const blob = new Blob([svgContent], {type: "image/svg+xml"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Tessellation_${currentLetter}.svg`;
+            a.click();
+            URL.revokeObjectURL(url);
         });
     </script>
 </body>
